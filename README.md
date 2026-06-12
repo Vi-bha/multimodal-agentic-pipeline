@@ -122,7 +122,7 @@ Tracking progress day by day.
 
 | Day | Focus | Status |
 |---|---|---|
-| 1–3 | Docker fundamentals — containerise Python app | 🔄 In Progress |
+| 1–3 | Docker fundamentals — containerise Python app | ✅ Day 1 Done |
 | 4–7 | CLIP + ViT embeddings, Qwen2-VL inference | ⏳ Pending |
 | 8–10 | LangGraph fundamentals — minimal 2-tool agent | ⏳ Pending |
 | 11–14 | RAG pipeline — ChromaDB + reranker | ⏳ Pending |
