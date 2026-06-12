@@ -1,0 +1,21 @@
+{
+  "query": "fluid in the chest",
+  "top_k": 3,
+  "results": [
+    {
+      "rank": 1,
+      "score": 0.4733,
+      "chunk": "Pleural effusion refers to fluid accumulation in the pleural space."
+    },
+    {
+      "rank": 2,
+      "score": 0.4545,
+      "chunk": "Cardiomegaly is an enlargement of the heart visible on chest X-ray."
+    },
+    {
+      "rank": 3,
+      "score": 0.4204,
+      "chunk": "Pneumothorax is air in the pleural cavity causing lung collapse."
+    }
+  ]
+}
