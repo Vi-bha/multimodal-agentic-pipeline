@@ -1,0 +1,11 @@
+version: "3.9"
+
+services:
+  similarity-search:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./output:/app/output
+    environment:
+      - PYTHONUNBUFFERED=1
