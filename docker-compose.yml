@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+
+  # ── Main API (FastAPI + LangGraph orchestrator) ──────────
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./output:/app/output
+    environment:
+      - PYTHONUNBUFFERED=1
+      - HF_HOME=/app/data/hf_cache
+    depends_on:
+      - chromadb
+    restart: unless-stopped
+
+  # ── ChromaDB Vector Store ────────────────────────────────
+  chromadb:
+    image: chromadb/chroma:latest
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./data/chromadb:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+    restart: unless-stopped
+
+  # ── Gradio Frontend ──────────────────────────────────────
+  gradio:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "7860:7860"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - API_URL=http://api:8000
+    depends_on:
+      - api
+    command: python src/gradio_app.py
+    restart: unless-stopped

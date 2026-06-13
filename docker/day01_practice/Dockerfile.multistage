@@ -1,0 +1,35 @@
+# ════════════════════════════════════════════════════
+# Stage 1: Builder
+# Install everything needed to build/compile
+# This stage will NOT appear in final image
+# ════════════════════════════════════════════════════
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+# Install dependencies into /root/.local (user install)
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# ════════════════════════════════════════════════════
+# Stage 2: Production
+# Start fresh — copy ONLY what's needed to run
+# No build tools, no cache, no bloat
+# ════════════════════════════════════════════════════
+FROM python:3.11-slim AS production
+
+WORKDIR /app
+
+# Copy installed packages from builder stage
+COPY --from=builder /root/.local /root/.local
+
+# Copy app code
+COPY app.py .
+
+# Create output directory
+RUN mkdir -p /app/output
+
+# Make installed packages accessible
+ENV PATH=/root/.local/bin:$PATH
+
+CMD ["python", "app.py"]
