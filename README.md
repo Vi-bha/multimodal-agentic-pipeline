@@ -123,8 +123,8 @@ Tracking progress day by day.
 | Day | Focus | Status |
 |---|---|---|
 | 1–3 | Docker fundamentals — containerise Python app | ✅ Day 1 Done |
-| 4–7 | CLIP + ViT embeddings, Qwen2-VL inference | ⏳ Pending |
-| 8–10 | LangGraph fundamentals — minimal 2-tool agent | ⏳ Pending |
+| 4–7 | CLIP + ViT embeddings, Qwen2-VL inference | ✅ Done |
+| 8–10 | LangGraph fundamentals — minimal 2-tool agent | 🔄 Up Next |
 | 11–14 | RAG pipeline — ChromaDB + reranker | ⏳ Pending |
 | 15–18 | Full pipeline integration + FastAPI + Docker | ⏳ Pending |
 | 19–22 | HuggingFace Spaces deployment + Gradio UI | ⏳ Pending |
