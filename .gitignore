@@ -220,3 +220,6 @@ __marimo__/
 # Raw data
 data/raw/
 data/processed/
+
+# ChromaDB
+data/chromadb/
