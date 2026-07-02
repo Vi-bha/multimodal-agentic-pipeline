@@ -4,7 +4,68 @@ import os
 
 sys.path.insert(0, "/content/multimodal-agentic-pipeline")
 
+# ── Real RAGRetriever (replaces stub) ────────────────────────
+import chromadb
+from sentence_transformers import SentenceTransformer, CrossEncoder
+from typing import List, Dict, Optional
 
+
+class RAGRetriever:
+    def __init__(self, db_path="data/chromadb", collection_name="medical_knowledge"):
+        self.client = chromadb.PersistentClient(path=db_path)
+        self.collection = self.client.get_or_create_collection(
+            name=collection_name,
+            metadata={"hnsw:space": "cosine"}
+        )
+        self.embedder = SentenceTransformer("all-MiniLM-L6-v2")
+        self.reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+
+    def retrieve(self, query: str, top_k: int = 3) -> List[Dict]:
+        if self.collection.count() == 0:
+            return []
+
+        query_embedding = self.embedder.encode([query]).tolist()
+        results = self.collection.query(
+            query_embeddings=query_embedding,
+            n_results=min(6, self.collection.count()),
+            include=["documents", "metadatas", "distances"]
+        )
+
+        candidates = []
+        for doc, meta, dist in zip(
+            results["documents"][0],
+            results["metadatas"][0],
+            results["distances"][0]
+        ):
+            candidates.append({
+                "chunk": doc,
+                "source": meta["source"],
+                "topic": meta["topic"],
+                "initial_score": round(1 - dist, 4)
+            })
+
+        pairs = [[query, c["chunk"]] for c in candidates]
+        scores = self.reranker.predict(pairs)
+        for i, s in enumerate(scores):
+            candidates[i]["rerank_score"] = round(float(s), 4)
+
+        reranked = sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)[:top_k]
+        for i, r in enumerate(reranked):
+            r["rank"] = i + 1
+        return reranked
+
+
+# ── Lazy-loaded retriever singleton ─────────────────────────
+_retriever = None
+
+def get_retriever() -> RAGRetriever:
+    global _retriever
+    if _retriever is None:
+        _retriever = RAGRetriever()
+    return _retriever
+
+
+# ── Node functions ───────────────────────────────────────────
 def perception_node(state: dict) -> dict:
     query = state["query"]
     print(f"  [perception] query='{query[:50]}'")
@@ -21,15 +82,34 @@ def perception_node(state: dict) -> dict:
 
 
 def retrieval_node(state: dict) -> dict:
-    query = state.get("perception_output") or state["query"]
-    print(f"  [retrieval] searching: '{str(query)[:50]}'")
-    stub_docs = [
-        {"rank": 1, "score": 0.91, "chunk": "Consolidation indicates airspace filling, commonly pneumonia.", "source": "radiology_textbook.pdf"},
-        {"rank": 2, "score": 0.84, "chunk": "Right lower lobe consolidation is most common in community-acquired pneumonia.", "source": "clinical_guidelines.pdf"},
-        {"rank": 3, "score": 0.79, "chunk": "Bacterial pneumonia presents as lobar consolidation with air bronchograms.", "source": "radiology_textbook.pdf"}
-    ]
-    print(f"  [retrieval] {len(stub_docs)} docs retrieved")
-    return {"retrieval_output": json.dumps(stub_docs)}
+    """
+    REAL retrieval — queries ChromaDB + CrossEncoder reranker.
+    Uses perception output as query if available, else raw user query.
+    """
+    # Build query from perception output or raw query
+    perception_raw = state.get("perception_output", "")
+    if perception_raw:
+        try:
+            perception = json.loads(perception_raw)
+            # Extract present findings as search query
+            present = [f["finding"] for f in perception.get("findings", []) if f["present"]]
+            query = " ".join(present) if present else state["query"]
+        except:
+            query = state["query"]
+    else:
+        query = state["query"]
+
+    print(f"  [retrieval] searching: '{query[:60]}'")
+
+    retriever = get_retriever()
+    docs = retriever.retrieve(query, top_k=3)
+
+    if not docs:
+        print(f"  [retrieval] ⚠️ no docs found — ChromaDB may be empty")
+        return {"retrieval_output": json.dumps([])}
+
+    print(f"  [retrieval] ✅ {len(docs)} docs retrieved")
+    return {"retrieval_output": json.dumps(docs)}
 
 
 def output_node(state: dict) -> dict:
@@ -38,18 +118,10 @@ def output_node(state: dict) -> dict:
     perception_raw = state.get("perception_output", "")
     retrieval_raw = state.get("retrieval_output", "[]")
 
-    # Handle empty perception — text-only queries skip perception node
-    if perception_raw:
-        try:
-            perception = json.loads(perception_raw)
-        except json.JSONDecodeError:
-            perception = {"raw": perception_raw}
-    else:
-        perception = {}
-
+    perception = json.loads(perception_raw) if perception_raw else {}
     try:
         retrieval = json.loads(retrieval_raw)
-    except json.JSONDecodeError:
+    except:
         retrieval = []
 
     issues = []
@@ -68,7 +140,7 @@ def output_node(state: dict) -> dict:
         "citation_count": len(retrieval)
     }
 
-    print(f"  [output] grounded={final['grounded']} citations={final['citation_count']} issues={len(issues)}")
+    print(f"  [output] ✅ grounded={final['grounded']} citations={final['citation_count']} issues={len(issues)}")
     return {"final_answer": json.dumps(final, indent=2), "consistency_issues": issues}
 
 
